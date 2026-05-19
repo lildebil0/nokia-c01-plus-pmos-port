@@ -15,6 +15,7 @@ This repo contains only **sanitized hardware description** harvested from a unit
 | Mainline board support | **no** (this board has never been ported) |
 | Bootloader | Unisoc, A/B slots, unlockable, AVB orange |
 | Reference DTS to clone | `sp9863a-1h10.dts` |
+| Target architecture | **aarch64** (Cortex-A55 is ARMv8.2; stock Android Go runs armv7 userspace on aarch64 kernel as RAM-saver, but pmOS goes pure aarch64) |
 | pmOS port status | **not started** — this repo is step 0 |
 
 ## Why this device, why pmOS

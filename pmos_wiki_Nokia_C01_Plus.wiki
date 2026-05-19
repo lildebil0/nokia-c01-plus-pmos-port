@@ -10,7 +10,7 @@
 | display            = 5.45" 1440×720 LCD (GC9702 panel, MIPI-DSI 4-lane)
 | storage            = 16 GB eMMC
 | memory             = 1 GiB LPDDR4X
-| architecture       = armv7 userspace on aarch64 kernel (stock); aarch64 recommended for pmOS
+| architecture       = aarch64 (chosen for pmOS port; stock Android Go runs armv7 userspace on aarch64 kernel)
 | networking         = 2.4 GHz Wi-Fi, BT, GPS, LTE (Cat. 4)
 | usb_networking     = yes (USB-OTG)
 | type               = handset
@@ -40,7 +40,7 @@
 }}
 
 == Users owning this device ==
-* {{User|YOURNAME}}
+* {{User|lildebil0}}
 
 == Status ==
 
@@ -90,7 +90,7 @@ A complete partition table is in the GitHub repo (<code>device_info.md</code>).
 
 == Resources ==
 
-* [https://github.com/YOURNAME/nokia-c01-plus-pmos-port nokia-c01-plus-pmos-port] — sanitized hardware dump, DTS files, porting notes
+* [https://github.com/lildebil0/nokia-c01-plus-pmos-port nokia-c01-plus-pmos-port] — sanitized hardware dump, DTS files, porting notes
 * [https://github.com/torvalds/linux/blob/master/arch/arm64/boot/dts/sprd/sp9863a-1h10.dts Mainline sp9863a-1h10.dts] — closest reference board in Linux
 * [https://github.com/strongtz/linux-sprd strongtz/linux-sprd] — downstream Spreadtrum kernel forks
 * [https://github.com/almondnguyen/twrp_device_samsung_a3core almondnguyen/twrp_device_samsung_a3core] — TWRP/device tree for Samsung Galaxy A03 Core (peer SC9863A device)

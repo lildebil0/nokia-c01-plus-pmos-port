@@ -12,7 +12,8 @@ Compiled from a unlocked-bootloader, root-Magisk Android 11 unit on 2026-05-19 f
 | Manufacturer | HMD Global |
 | SoC | Unisoc / Spreadtrum SC9863A (a.k.a. SP9863A / sharkl3) |
 | CPU | 8× ARM Cortex-A55 @ 1.6 GHz, ARMv8 |
-| Android userland ABI | `armeabi-v7a` (32-bit userspace on 64-bit CPU) |
+| Android userland ABI | `armeabi-v7a` (stock — 32-bit userspace on 64-bit CPU, Android Go RAM-saver) |
+| pmOS target architecture | **aarch64** (decision: pure 64-bit; stock 32-bit-userland was a Go-edition compromise, not a hardware limit) |
 | Stock kernel | Linux 4.14.193 (Spreadtrum BSP, Android Common) |
 | Stock Android | 11 (Go edition), SDK 30 |
 | RAM | 1 GB LPDDR (cmdline `androidboot.ddrsize=1024M`) |
