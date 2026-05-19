@@ -26,6 +26,7 @@ makedepends="
 	perl
 	postmarketos-installkernel
 	python3
+	zstd
 "
 
 _pkgver="${pkgver/_/-}"
