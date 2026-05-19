@@ -1,0 +1,73 @@
+maintainer="lildebil0 <240331710+lildebil0@users.noreply.github.com>"
+_flavor="nokia-iris"
+pkgname=linux-$_flavor
+pkgver=7.1_rc4
+pkgrel=0
+pkgdesc="Linux mainline kernel for Nokia C01 Plus (Unisoc SC9863A)"
+arch="aarch64"
+_carch="arm64"
+url="https://kernel.org"
+license="GPL-2.0-only"
+options="!strip !check !tracedeps
+	pmb:cross-native
+"
+makedepends="
+	bash
+	bc
+	bison
+	clang
+	findutils
+	flex
+	kmod
+	linux-headers
+	lld
+	llvm
+	openssl-dev
+	perl
+	postmarketos-installkernel
+	python3
+"
+
+_pkgver="${pkgver/_/-}"
+_config="config-$_flavor.$arch"
+source="
+	linux-$_pkgver.tar.gz::https://git.kernel.org/torvalds/t/linux-$_pkgver.tar.gz
+	$_config
+"
+builddir="$srcdir/linux-$_pkgver"
+
+prepare() {
+	default_prepare
+	cp "$srcdir/$_config" .config
+	make ARCH="$_carch" LLVM=1 olddefconfig
+}
+
+build() {
+	unset LDFLAGS
+	make ARCH="$_carch" LLVM=1 \
+		KBUILD_BUILD_VERSION="$((pkgrel + 1 ))-postmarketOS" \
+		Image.gz modules dtbs
+}
+
+package() {
+	mkdir -p "$pkgdir"/boot
+
+	install -Dm644 arch/$_carch/boot/Image.gz \
+		"$pkgdir"/boot/vmlinuz-$_flavor
+
+	make ARCH="$_carch" LLVM=1 modules_install \
+		INSTALL_MOD_PATH="$pkgdir" \
+		INSTALL_MOD_STRIP=1
+	rm -f "$pkgdir"/lib/modules/*/build "$pkgdir"/lib/modules/*/source
+
+	make ARCH="$_carch" LLVM=1 dtbs_install \
+		INSTALL_DTBS_PATH="$pkgdir"/boot/dtbs
+
+	install -D "$builddir"/include/config/kernel.release \
+		"$pkgdir"/usr/share/kernel/$_flavor/kernel.release
+}
+
+sha512sums="
+2f14db8091a6100a19c63e9d1f0baa0f58864c40b9b259d929fc3ad5ec3aa824048ca7d1313ce81e3a9ba08ea6357e6a4837804ba51711d7bfb212a2665dc113  linux-7.1-rc4.tar.gz
+c0c62c3f13c51b9eb84e8f9796006bdf0590437ef3509257d7fb487663b7311cbaf424627e5e934bd41cba7cdc540225a759e488828209faa5a91ddba0580f17  config-nokia-iris.aarch64
+"
