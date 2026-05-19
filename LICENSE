@@ -1,0 +1,7 @@
+Sanitized documentation files (README.md, device_info.md, pmos_wiki_*.wiki)
+are released under CC0 1.0 Universal (Public Domain Dedication).
+
+DTS / DTB files under extracted_dts/ are derived from the device's stock
+firmware. Their copyright belongs to the original authors
+(Spreadtrum / HMD Global / Microarray). They are reproduced here for
+hardware-description / interoperability purposes only, with no warranty.

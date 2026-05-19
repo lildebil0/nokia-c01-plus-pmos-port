@@ -1,0 +1,102 @@
+{{Infobox device
+| manufacturer       = HMD Global (Nokia)
+| name               = C01 Plus
+| codename           = nokia-iris
+| releaseyear        = 2021
+| originalsoftware   = Android 11 (Go edition)
+| chipset            = Unisoc / Spreadtrum SC9863A (sharkl3)
+| cpu                = 8× ARM Cortex-A55 @ 1.6 GHz
+| gpu                = IMG PowerVR GE8322
+| display            = 5.45" 1440×720 LCD (GC9702 panel, MIPI-DSI 4-lane)
+| storage            = 16 GB eMMC
+| memory             = 1 GiB LPDDR4X
+| architecture       = armv7 userspace on aarch64 kernel (stock); aarch64 recommended for pmOS
+| networking         = 2.4 GHz Wi-Fi, BT, GPS, LTE (Cat. 4)
+| usb_networking     = yes (USB-OTG)
+| type               = handset
+| status_booting     = ❓ untested
+| status_battery     = ❓ untested
+| status_3d          = ❌ no driver
+| status_accel       = ❓ untested
+| status_audio       = ❌ not in scope
+| status_bluetooth   = ❌ no driver (proprietary blob)
+| status_camera      = ❌ not in scope
+| status_display     = ❓ untested
+| status_fde         = ❓ untested
+| status_flash       = ❓ untested
+| status_gpu         = ❌ no driver
+| status_gps         = ❌ not in scope
+| status_modem       = ❌ not in scope
+| status_mainline    = ⏳ in progress (SoC mainline, board not yet)
+| status_otg         = ❓ untested
+| status_screen      = ❓ untested
+| status_sensors     = ❌ not in scope
+| status_touch       = ❌ not in scope
+| status_uefi        = no
+| status_usbnet      = ❓ untested
+| status_wifi        = ❌ no driver (proprietary blob from wcnmodem partition)
+| pmos_kernel        = community port (planned)
+| pmos_branch        = none yet
+}}
+
+== Users owning this device ==
+* {{User|YOURNAME}}
+
+== Status ==
+
+Pre-port reconnaissance only. SoC is mainlined in Linux since 2020 (commit adding `sc9863a.dtsi`, `sharkl3.dtsi`, `sp9863a-1h10.dts`), but no board-specific port for the Iris (T19545AA1) board exists upstream or in pmaports. Stock bootloader is unlockable via HMD's identifier-token flow; once unlocked, `fastboot getvar unlocked` returns `yes` and AVB orange state is reported.
+
+Primary motivation for porting: lightweight web-server / always-on Linux. Touch, modem, camera, audio are explicitly out of scope.
+
+See the linked GitHub repo for a full hardware description and the extracted DTS files.
+
+== How to enter flash mode ==
+
+# Reboot phone, hold '''Power + Volume Up''' during boot, release at Nokia logo to enter Recovery.
+# From Recovery, select '''Reboot to bootloader''', or run <code>adb reboot bootloader</code> from a connected machine if USB debugging is enabled.
+# When in fastboot, the phone shows '''FASTBOOT mode''' on the LCD and enumerates over USB as VID <code>0x18D1</code> PID <code>0x4EE0</code> (the standard Google fastboot interface).
+# On Windows the Google USB driver (<code>android_winusb.inf</code>) binds it as ''Android Bootloader Interface''.
+
+== How to unlock the bootloader ==
+
+The standard <code>fastboot oem unlock</code> and <code>fastboot flashing unlock</code> commands do '''not''' work directly on this Unisoc device. The actual unlock flow uses Unisoc's identifier-token mechanism. Two approaches are documented:
+
+* HMD-supported flow via their internal unlock tool (rarely accessible to end users)
+* Community Python re-implementation: [https://github.com/patrislav1/unisoc-unlock patrislav1/unisoc-unlock]
+
+After a successful unlock, a factory reset is performed and AVB enters '''orange''' state, but boot images must still be signed (AVB-compatible) or have verification disabled per slot.
+
+== Partitions ==
+
+eMMC: 14.6 GiB usable across 75 partitions with full A/B slotting for boot/system/vendor/super. Key partitions for pmOS:
+
+* <code>boot_a</code> / <code>boot_b</code> — 64 MiB each, Android boot.img v3. Kernel + DTB appended.
+* <code>vendor_boot_a</code> / <code>vendor_boot_b</code> — 100 MiB each, vendor_boot.img v3.
+* <code>dtbo_a</code> / <code>dtbo_b</code> — 8 MiB each, Android DTBO image v0, 2 overlay entries. Cmdline <code>androidboot.dtbo_idx=1</code> selects the Iris-specific overlay.
+* <code>super</code> — 2.7 GiB, dynamic partitions (LP v10.2, Virtual A/B). Sub-partitions: <code>system_a</code> (~640 MiB), <code>system_ext_a</code> (~170 MiB), <code>vendor_a</code> (291 MiB), <code>product_a</code> (~1 GiB), <code>hmdodm_a</code> (410 MiB).
+* <code>prodnv</code> — 10 MiB, '''unique per device''' (IMEI, MAC). Never overwrite, never redistribute.
+* <code>vbmeta</code> + <code>vbmeta_*</code> — AVB chained meta partitions.
+
+A complete partition table is in the GitHub repo (<code>device_info.md</code>).
+
+== Bring-up notes ==
+
+* '''Serial console (UART):''' <code>ttyS1</code> mapped to <code>sprd_serial</code> at physical <code>0x70100000</code>, 115200n8. Stock cmdline ships <code>earlycon=sprd_serial,0x70100000,115200n8 console=ttyS1,115200n8</code> — use the same for pmOS until display works.
+* '''eMMC controller:''' <code>soc/soc:ap-ahb/20600000.sdio</code> (Spreadtrum sdhci-r11 at 0x20600000 on the ap-ahb bus). DTS node must be present for storage to come up.
+* '''Display panel:''' '''GC9702''' MIPI-DSI 4-lane, 1440×720, pixel clock 76.8 MHz. The reference <code>sp9863a-1h10</code> DTBO carries <code>nt35695_truly_mipi_fhd</code> instead — that is the wrong panel for Iris and will not init. A GC9702 panel driver is required.
+* '''RAM size:''' 1024 MiB (<code>androidboot.ddrsize=1024M</code>).
+* '''WiFi/BT:''' On stock, firmware is loaded into a Spreadtrum WCN core from the <code>wcnmodem</code> partition (10 MiB). No mainline driver supports this yet. Acceptable workaround for a server use case: USB Wi-Fi dongle or USB-Ethernet.
+* '''Modem:''' Boots from eMMC (<code>modemboot.method=emmcboot</code>), runs on dedicated SP9863A coprocessors (gdsp/ldsp). Out of scope for the planned port.
+
+== Resources ==
+
+* [https://github.com/YOURNAME/nokia-c01-plus-pmos-port nokia-c01-plus-pmos-port] — sanitized hardware dump, DTS files, porting notes
+* [https://github.com/torvalds/linux/blob/master/arch/arm64/boot/dts/sprd/sp9863a-1h10.dts Mainline sp9863a-1h10.dts] — closest reference board in Linux
+* [https://github.com/strongtz/linux-sprd strongtz/linux-sprd] — downstream Spreadtrum kernel forks
+* [https://github.com/almondnguyen/twrp_device_samsung_a3core almondnguyen/twrp_device_samsung_a3core] — TWRP/device tree for Samsung Galaxy A03 Core (peer SC9863A device)
+* [https://github.com/patrislav1/unisoc-unlock patrislav1/unisoc-unlock] — bootloader unlock via identifier token
+
+[[Category:Devices]]
+[[Category:Spreadtrum]]
+[[Category:Nokia]]
+[[Category:Status_Mainline_In_Progress]]
