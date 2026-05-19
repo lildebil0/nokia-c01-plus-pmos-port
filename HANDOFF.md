@@ -7,8 +7,14 @@ Snapshot from kukuruza-laptop (Ryzen 5 6600H) on 2026-05-19 17:15. Moving build 
 - WSL2 + Debian 13 + systemd: working
 - pmbootstrap 3.10.1 from git: installed
 - pmaports cloned, device-nokia-iris skeleton generated, linux-nokia-iris kernel package written (mainline 7.1-rc4 + SPRD drivers enabled in config)
-- 5 build attempts: 3 failed on chroot/network gotchas, 2 failed on packaging-stage make-target issues
-- **Last fix in progress:** added `modules` to `build()` target, build #6 stopped mid-run
+- 5 build attempts on laptop: 3 failed on chroot/network gotchas, 2 failed on packaging-stage make-target issues
+
+## Update 2026-05-19 (desktop, B660 + ES 12900K)
+
+- **Stage A kernel build PASSED** — build #8 on desktop. APK `linux-nokia-iris-7.1_rc4-r0.apk` (~71 MB) at `~/.local/var/pmbootstrap/packages/edge/aarch64/`.
+- Two new gotchas hit on desktop, both now in deps below: missing `kpartx` (pmbootstrap 3.10+ init refuses to run), missing `zstd` in build-chroot makedepends (kernel 7.1 default `CONFIG_MODULE_COMPRESS_ZSTD=y` makes `modules_install` invoke `zstd`).
+- Overlay-is-copy gotcha: `pmaports-overlay/` is `cp -r`'d into pmaports cache, not symlinked. Edits to APKBUILD in repo do NOT reach build until re-applied. Either edit both copies or re-run the `cp -r` step before each build.
+- Channel `edge` got rewritten to `systemd-edge` by pmbootstrap because UI=none/console now defaults to systemd init.
 
 ## Steps on the new PC
 
@@ -47,8 +53,10 @@ If OK — skip.
 **b. Install deps**
 
 ```bash
-sudo apt-get install -y git curl pipx expect ca-certificates build-essential
+sudo apt-get install -y git curl pipx expect ca-certificates build-essential kpartx zstd
 ```
+
+`kpartx` is required by pmbootstrap 3.10+ — without it, `pmbootstrap init` exits with "Can't find all programs required to run pmbootstrap. Please install the following: kpartx". `zstd` is needed on the host for tarball extraction in some flows; the makedepends in the kernel APKBUILD covers the in-chroot build path.
 
 **c. Force IPv4 in /etc/gai.conf (Python urllib will pick broken IPv6 otherwise)**
 
@@ -180,11 +188,13 @@ pmbootstrap build linux-nokia-iris       # ~5-10 min on 13900K (was 25 min on 66
 
 Look at error: `pmbootstrap log` (full log at `~/.local/var/pmbootstrap/log.txt`).
 
-Most likely remaining issues (we hit these on 6600H):
+Most likely remaining issues (we hit these on 6600H + 12900K):
 
 - **`No rule to make target 'modules.order'`** — solved: APKBUILD `build()` line includes `Image.gz modules dtbs`. If still happening, double-check `build()` target list.
 - **`Missing file: arch/arm64/boot/vmlinuz.efi` in zinstall** — solved: APKBUILD `package()` no longer uses `zinstall` target, manually copies `Image.gz` to `$pkgdir/boot/vmlinuz-$_flavor`. If still happens, check `package()` body.
+- **`/bin/sh: zstd: not found` during `make modules_install`** — solved: APKBUILD `makedepends` includes `zstd`. Kernel 7.1 default config sets `CONFIG_MODULE_COMPRESS_ZSTD=y`, so the build-chroot needs the binary even though the host has it. If hit again, verify `zstd` appears in `makedepends` of both repo and pmaports-cache APKBUILD copies.
 - **Kconfig olddefconfig prompts** — if interactive, prepend `yes "" |` or kill chroot and retry.
+- **Edits to APKBUILD in repo have no effect** — overlay is `cp -r`'d, not symlinked. Re-run the `cp -r` from step 5 after any edit, or edit `~/.local/var/pmbootstrap/cache_git/pmaports/device/testing/linux-nokia-iris/APKBUILD` directly. Keep both copies in sync before committing.
 
 ### 8. After kernel apk built
 
@@ -198,17 +208,25 @@ Then full rootfs install:
 
 ```bash
 pmbootstrap build device-nokia-iris
-pmbootstrap install --no-fde --no-image
+pmbootstrap install --no-fde --split
+# --split keeps boot.img and rootfs.img separate (needed when flashing
+# boot to one slot without touching userdata/system on the phone).
 pmbootstrap export
-# → produces boot.img + rootfs.img in ~/.local/var/pmbootstrap/chroot_native/home/pmos/rootfs/
+# → produces nokia-iris-boot.img + nokia-iris-rootfs.img in
+#   ~/.local/var/pmbootstrap/chroot_native/home/pmos/rootfs/
+# Confirm with: ls ~/.local/var/pmbootstrap/chroot_native/home/pmos/rootfs/
 ```
 
 Then flash test on the actual phone:
 
 ```bash
 # Power off phone, hold Vol- + plug USB → fastboot mode
-fastboot boot ~/.local/var/pmbootstrap/chroot_native/home/pmos/rootfs/boot.img
-# (boot not flash — temporary boot, no risk to stock partitions)
+# Slot _a is the active slot for this device (verified via getvar current-slot).
+# Prefer `fastboot boot` first — it boots once without writing to flash:
+fastboot boot ~/.local/var/pmbootstrap/chroot_native/home/pmos/rootfs/nokia-iris-boot.img
+
+# Once UART confirms the mainline kernel comes up, persist with:
+fastboot flash boot_a ~/.local/var/pmbootstrap/chroot_native/home/pmos/rootfs/nokia-iris-boot.img
 ```
 
 Watch UART (USB-serial dongle on phone test points) at 115200n8.
