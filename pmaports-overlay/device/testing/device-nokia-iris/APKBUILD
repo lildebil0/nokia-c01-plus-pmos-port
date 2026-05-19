@@ -3,7 +3,7 @@ maintainer="lildebil0 <240331710+lildebil0@users.noreply.github.com>"
 pkgname=device-nokia-iris
 pkgdesc="Nokia C01 Plus"
 pkgver=1
-pkgrel=0
+pkgrel=1
 url="https://postmarketos.org"
 license="MIT"
 arch="aarch64"
@@ -11,6 +11,7 @@ options="!check !archcheck"
 depends="
 	linux-nokia-iris
 	postmarketos-base
+	android-tools
 "
 makedepends="devicepkg-dev"
 source="
