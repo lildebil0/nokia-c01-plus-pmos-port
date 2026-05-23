@@ -1,5 +1,14 @@
 # Nokia C01 Plus → pmOS port — build handoff
 
+> **2026-05-23 status update**: build #8 mainline 7.1-rc4 compiled cleanly
+> but did not boot on the device (SPRD drivers in mainline are partial:
+> clock-driver present, pinctrl/regulator/MMC platform glue incomplete
+> for SC9863A). Direction changed: switch to **strongtz/linux-sprd 4.14
+> downstream** for Stage A headless boot.  See `PHASE_PLAN.md` for the
+> full approach analysis and Phase 0/1/2 deliverables.  The instructions
+> in this file below still apply for the WSL setup; only the kernel
+> APKBUILD + config change.
+
 Snapshot from kukuruza-laptop (Ryzen 5 6600H) on 2026-05-19 17:15. Moving build to a faster machine (13900K-class). This doc is everything you need to reproduce the WSL+pmbootstrap setup and resume build attempts.
 
 ## Status when handoff was made

@@ -1,0 +1,95 @@
+# Phase 1 (Approach F) — fragment overlaid on top of sprd_sharkl3_defconfig
+# When switching APKBUILD.v2-downstream -> APKBUILD, also rename this file
+# to config-nokia-iris.aarch64 (replacing the mainline 7.1-rc4 generated
+# config).
+#
+# sprd_sharkl3_defconfig already enables:
+#   - All SC9863A SPRD drivers (clk, pinctrl, regulator, mmc, uart, usb, i2c)
+#   - sp9863a-1h10 board DTS
+#   - Android Goldfish/ION/binder (we will disable below for pure pmOS)
+#   - 4.14 baseline features
+#
+# Below are ADDITIONS / OVERRIDES for headless Stage A goal:
+#   - USB gadget NCM for ethernet-over-USB (SSH access)
+#   - OpenRC + cgroup compatibility
+#   - Drop Android-specific bits
+#   - DEVTMPFS, modern udev compat
+
+# === Stage A: headless networking ===
+# USB gadget NCM driver (modern ethernet-over-USB; replaces older g_ether)
+CONFIG_USB_GADGET=y
+CONFIG_USB_CONFIGFS=y
+CONFIG_USB_CONFIGFS_NCM=y
+CONFIG_USB_CONFIGFS_RNDIS=y
+CONFIG_USB_CONFIGFS_ECM=y
+CONFIG_USB_CONFIGFS_SERIAL=y
+CONFIG_USB_CONFIGFS_ACM=y
+CONFIG_USB_F_NCM=y
+CONFIG_USB_F_ECM=y
+CONFIG_USB_F_RNDIS=y
+CONFIG_USB_F_SERIAL=y
+CONFIG_USB_F_ACM=y
+CONFIG_USB_LIBCOMPOSITE=y
+
+# === pmOS userspace compatibility ===
+# Required by Alpine/musl + modern OpenRC (cgroupv1 mandatory for 4.14)
+CONFIG_CGROUPS=y
+CONFIG_CGROUP_PIDS=y
+CONFIG_CGROUP_FREEZER=y
+CONFIG_CGROUP_DEVICE=y
+CONFIG_CPUSETS=y
+CONFIG_CGROUP_CPUACCT=y
+CONFIG_MEMCG=y
+CONFIG_CGROUP_SCHED=y
+CONFIG_FAIR_GROUP_SCHED=y
+CONFIG_BLK_CGROUP=y
+CONFIG_PROC_FS=y
+CONFIG_SYSFS=y
+CONFIG_TMPFS=y
+CONFIG_DEVTMPFS=y
+CONFIG_DEVTMPFS_MOUNT=y
+
+# Filesystems pmbootstrap rootfs needs
+CONFIG_EXT4_FS=y
+CONFIG_F2FS_FS=y
+CONFIG_OVERLAY_FS=y
+CONFIG_FUSE_FS=y
+CONFIG_VFAT_FS=y
+
+# Network basics for SSH + apk
+CONFIG_INET=y
+CONFIG_IPV6=y
+CONFIG_NETFILTER=y
+CONFIG_NF_CONNTRACK=y
+CONFIG_PACKET=y
+CONFIG_UNIX=y
+
+# Debug — keep verbose console for first-boot iteration
+CONFIG_PRINTK=y
+CONFIG_PRINTK_TIME=y
+CONFIG_DYNAMIC_DEBUG=y
+CONFIG_DEBUG_KERNEL=y
+CONFIG_DEBUG_INFO=y
+CONFIG_DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT=y
+
+# === Disable Android-only bloat ===
+# CONFIG_ANDROID is not set
+# CONFIG_ANDROID_BINDER_IPC is not set
+# CONFIG_ANDROID_BINDERFS is not set
+# CONFIG_ANDROID_LOGGER is not set
+# CONFIG_ION is not set
+# CONFIG_GOLDFISH is not set
+# CONFIG_GOLDFISH_PIPE is not set
+# CONFIG_SYNC is not set
+# CONFIG_SW_SYNC is not set
+
+# === Disable SELinux for first boot (re-enable after Stage A working) ===
+# pmOS Alpine does not enforce SELinux; downstream vendor configs often
+# have it ON which conflicts with musl + OpenRC bring-up.
+# CONFIG_SECURITY_SELINUX is not set
+# CONFIG_DEFAULT_SECURITY_SELINUX is not set
+CONFIG_DEFAULT_SECURITY_DAC=y
+
+# === Re-enable Stage B prep (display will be no-op on headless) ===
+# DRM kept enabled (cost: small) so future Stage B does not need rebuild
+CONFIG_DRM=y

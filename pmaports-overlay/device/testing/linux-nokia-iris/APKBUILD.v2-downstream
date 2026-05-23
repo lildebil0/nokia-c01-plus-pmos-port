@@ -1,0 +1,111 @@
+# Phase 1 (Approach F) — downstream 4.14 strongtz/linux-sprd
+# Rename to APKBUILD when switching from mainline 7.1-rc4 attempt
+# (build #8 mainline compiled OK but did not boot — SPRD drivers in
+# mainline are partial: clock-driver present, pinctrl/regulator/MMC
+# incomplete for SC9863A. strongtz 4.14 has full vendor drivers from
+# original Unisoc BSP.)
+
+maintainer="lildebil0 <240331710+lildebil0@users.noreply.github.com>"
+_flavor="nokia-iris"
+pkgname=linux-$_flavor
+# strongtz/linux-sprd is based on Unisoc 4.14.133 BSP, frozen 2021-04-28
+# We pin a specific commit (d834a127a) so the build is reproducible.
+# Full commit hash must be filled in after first checksum run.
+_commit="d834a127a"
+pkgver=4.14.133_git$(echo $_commit | head -c 7)
+pkgrel=0
+pkgdesc="Linux 4.14 downstream kernel (strongtz/linux-sprd) for Nokia C01 Plus (SC9863A)"
+arch="aarch64"
+_carch="arm64"
+url="https://github.com/strongtz/linux-sprd"
+license="GPL-2.0-only"
+options="!strip !check !tracedeps
+	pmb:cross-native
+"
+makedepends="
+	bash
+	bc
+	bison
+	clang
+	findutils
+	flex
+	kmod
+	linux-headers
+	lld
+	llvm
+	openssl-dev
+	perl
+	postmarketos-installkernel
+	python3
+	zstd
+"
+
+_config="config-$_flavor.$arch"
+source="
+	linux-sprd-$_commit.tar.gz::https://github.com/strongtz/linux-sprd/archive/$_commit.tar.gz
+	$_config
+"
+# strongtz repo archive extracts to linux-sprd-<full-40-char-hash>; replace
+# below with full hash after first download (or use a glob-symlink in prepare()).
+builddir="$srcdir/linux-sprd-${_commit}"
+
+prepare() {
+	default_prepare
+
+	# Resolve actual builddir if commit hash is short — archive folder uses
+	# full 40-char hash, not abbreviated one.
+	if [ ! -d "$builddir" ]; then
+		actual=$(find "$srcdir" -maxdepth 1 -type d -name "linux-sprd-*" | head -1)
+		if [ -n "$actual" ]; then
+			ln -sf "$actual" "$builddir"
+		fi
+	fi
+
+	cd "$builddir"
+
+	# Start from built-in sprd_sharkl3_defconfig (covers SC9863A fully:
+	# clocks, pinctrl, regulators, MMC, UART, USB gadget, i2c, spi, eMMC).
+	# Then layer our fragment on top.
+	make ARCH="$_carch" LLVM=1 sprd_sharkl3_defconfig
+
+	# Append our fragment additions (USB-net for Stage A SSH, OpenRC compat,
+	# disable Android-specific bloat we don't need on headless pmOS).
+	cat "$srcdir/$_config" >> .config
+
+	# GCC 14 -Werror workaround is not needed when using clang/LLVM=1
+	# (clang 22 is permissive about array-compare/stringop-overflow in 4.14
+	# code).  If clang build still fails on -Werror, uncomment KCFLAGS line
+	# in build() below.
+	make ARCH="$_carch" LLVM=1 olddefconfig
+}
+
+build() {
+	unset LDFLAGS
+	# Optional escape hatch if clang 22 still chokes on 4.14:
+	# export KCFLAGS="-w -Wno-error -Wno-error=array-compare -Wno-error=stringop-overflow"
+	make ARCH="$_carch" LLVM=1 \
+		KBUILD_BUILD_VERSION="$((pkgrel + 1 ))-postmarketOS" \
+		Image.gz modules dtbs
+}
+
+package() {
+	mkdir -p "$pkgdir"/boot
+
+	install -Dm644 arch/$_carch/boot/Image.gz \
+		"$pkgdir"/boot/vmlinuz-$_flavor
+
+	make ARCH="$_carch" LLVM=1 modules_install \
+		INSTALL_MOD_PATH="$pkgdir" \
+		INSTALL_MOD_STRIP=1
+	rm -f "$pkgdir"/lib/modules/*/build "$pkgdir"/lib/modules/*/source
+
+	make ARCH="$_carch" LLVM=1 dtbs_install \
+		INSTALL_DTBS_PATH="$pkgdir"/boot/dtbs
+
+	install -D "$builddir"/include/config/kernel.release \
+		"$pkgdir"/usr/share/kernel/$_flavor/kernel.release
+}
+
+# Run `pmbootstrap checksum linux-nokia-iris` after first failed-checksum
+# build to populate these. Then commit updated sha512sums to repo.
+sha512sums=""
